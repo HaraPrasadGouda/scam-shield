@@ -3,87 +3,242 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Scam Shield</title>
+  <title>Scam Shield - Check Internship Offers</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-6">
-  <div class="max-w-3xl w-full bg-white shadow-md rounded-lg p-6">
-    <h1 class="text-2xl font-bold mb-4">Scam Shield</h1>
-    <p class="text-sm text-gray-600 mb-4">Paste the internship/job offer below or upload a PDF/image. We'll check for common scam indicators.</p>
+<body class="bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-start py-8 px-4 sm:px-6">
 
-    <div class="flex gap-2 mb-4">
-      <button id="sampleSafe" class="px-3 py-1 bg-green-100 text-green-800 rounded text-sm">Sample: Safe Offer</button>
-      <button id="sampleSuspicious" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">Sample: Suspicious Offer</button>
-      <button id="sampleScam" class="px-3 py-1 bg-red-100 text-red-800 rounded text-sm">Sample: Scam Offer</button>
+  <!-- Container -->
+  <div class="max-w-4xl w-full mx-auto backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl rounded-3xl p-6 sm:p-10">
+    
+    <!-- Header with Shield Logo & Tagline -->
+    <header class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 shadow-lg mb-4 text-indigo-400">
+        <!-- Shield Icon SVG -->
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+        </svg>
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2">Scam Shield</h1>
+      <p class="text-indigo-200 text-base sm:text-lg font-medium">Check any internship offer in 10 seconds</p>
+    </header>
+
+    <!-- Sample Offer Buttons -->
+    <div class="flex flex-wrap gap-2 justify-center mb-6">
+      <button id="sampleSafe" class="px-3.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs sm:text-sm font-medium transition">Sample: Safe Offer</button>
+      <button id="sampleSuspicious" class="px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-xl text-xs sm:text-sm font-medium transition">Sample: Suspicious Offer</button>
+      <button id="sampleScam" class="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs sm:text-sm font-medium transition">Sample: Scam Offer</button>
     </div>
 
-    <form id="offerForm" class="space-y-4">
+    <!-- Form -->
+    <form id="offerForm" class="space-y-6">
       <div>
-        <label class="block text-sm font-medium text-gray-700">Offer Text</label>
-        <textarea id="offerText" name="offerText" rows="8" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+        <label class="block text-sm font-semibold text-slate-200 mb-2">Paste Internship / Job Offer Text</label>
+        <textarea id="offerText" name="offerText" rows="6" placeholder="Paste email content, offer letter text, or WhatsApp message here..." class="w-full rounded-2xl bg-slate-900/60 border border-white/15 px-4 py-3 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-sm"></textarea>
       </div>
 
+      <!-- Drag-Drop Upload Zone -->
       <div>
-        <label class="block text-sm font-medium text-gray-700">Upload File (PDF or image)</label>
-        <input id="fileInput" name="file" type="file" accept="application/pdf,image/*" class="mt-1" />
+        <label class="block text-sm font-semibold text-slate-200 mb-2">Or Upload Offer Document (PDF / Image)</label>
+        <div id="dropZone" class="border-2 border-dashed border-white/20 hover:border-indigo-400/50 rounded-2xl p-6 text-center cursor-pointer bg-slate-900/40 transition flex flex-col items-center justify-center">
+          <svg class="w-10 h-10 text-indigo-400 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"></path>
+          </svg>
+          <p class="text-sm text-slate-300 font-medium" id="dropText">Drag and drop your PDF or image here, or <span class="text-indigo-400 underline">browse</span></p>
+          <p class="text-xs text-slate-400 mt-1">Supports PDF, PNG, JPG</p>
+          <input id="fileInput" name="file" type="file" accept="application/pdf,image/*" class="hidden" />
+        </div>
+        <div id="fileNameDisplay" class="text-xs text-indigo-300 mt-2 hidden"></div>
       </div>
 
+      <!-- Submit Button -->
       <div>
-        <button id="submitBtn" type="submit" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Check Offer</button>
+        <button id="submitBtn" type="submit" class="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold rounded-2xl shadow-lg transition duration-200 flex items-center justify-center space-x-2 text-base">
+          <span>Analyze Offer Now</span>
+        </button>
       </div>
     </form>
 
-    <div id="result" class="mt-6 hidden">
-      <div id="resultCard" class="p-4 rounded border">
-        <div class="flex items-center justify-between">
-          <h2 id="resultTitle" class="text-lg font-semibold">Result</h2>
-          <div id="riskBadge" class="text-sm font-bold px-3 py-1 rounded"></div>
+    <!-- Loading Animation State -->
+    <div id="loadingState" class="hidden mt-8 text-center py-12">
+      <div class="inline-block w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p class="text-indigo-200 font-medium text-lg">Scanning for cyber fraud indicators, WHOIS registry age, and MCA records...</p>
+    </div>
+
+    <!-- Results Section -->
+    <div id="result" class="mt-8 hidden space-y-6">
+      <div id="resultCard" class="backdrop-blur-xl bg-slate-900/80 border border-white/20 rounded-3xl p-6 sm:p-8 shadow-2xl">
+        
+        <!-- Top Row: Gauge & Verdict -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-6 border-b border-white/10 pb-6">
+          <div class="flex items-center space-x-4">
+            <!-- Circular Gauge -->
+            <div class="relative w-24 h-24 flex items-center justify-center">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path class="text-slate-700" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                <path id="gaugeCircle" class="text-indigo-500 transition-all duration-1000" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+              </svg>
+              <div class="absolute text-center">
+                <span id="riskScoreVal" class="text-2xl font-black text-white">0</span>
+                <span class="text-[10px] block text-slate-400 uppercase tracking-wider">Risk / 100</span>
+              </div>
+            </div>
+            <div>
+              <span id="verdictBadge" class="inline-block px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2"></span>
+              <h2 class="text-2xl font-bold text-white">Offer Risk Analysis</h2>
+            </div>
+          </div>
+
+          <!-- Language Toggle Tabs -->
+          <div class="flex bg-slate-800/80 p-1.5 rounded-2xl border border-white/10">
+            <button id="tabHinglish" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white transition shadow">Hinglish</button>
+            <button id="tabOdia" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition">ଓଡ଼ିଆ (Odia)</button>
+          </div>
         </div>
 
-        <div id="resultBody" class="mt-3 text-sm text-gray-800">
-          <!-- Filled by JS -->
+        <!-- Reasons Box -->
+        <div class="mt-6">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-300 mb-2">Analysis Summary</h3>
+          <div id="reasonHinglishText" class="text-slate-200 text-base leading-relaxed bg-white/5 border border-white/10 rounded-2xl p-4"></div>
+          <div id="reasonOdiaText" class="text-slate-200 text-base leading-relaxed bg-white/5 border border-white/10 rounded-2xl p-4 hidden"></div>
         </div>
 
-        <div class="mt-4 flex gap-2">
-          <button id="copyComplaint" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Copy Cybercrime Complaint Draft</button>
-          <button id="copyAlert" class="px-3 py-2 bg-gray-800 text-white rounded hover:bg-gray-900">Copy TPO / Class Alert Message</button>
+        <!-- Red Flags Cards -->
+        <div class="mt-6">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-rose-400 mb-3 flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <span>Detected Red Flags</span>
+          </h3>
+          <div id="redFlagsContainer" class="space-y-3">
+            <!-- Dynamically populated red flag cards -->
+          </div>
         </div>
+
+        <!-- MCA & WHOIS Domain Check Section -->
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- MCA Verification Card -->
+          <div class="bg-slate-900/60 border border-white/10 rounded-2xl p-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">Company Verification (MCA)</h4>
+            <div id="mcaInfoContent" class="text-sm text-slate-300 space-y-1">
+              <!-- Populated by JS -->
+            </div>
+            <div class="mt-3">
+              <a id="mcaLinkBtn" href="https://www.mca.gov.in/content/mca/global/en/data-and-reports/company-master-data/company-master-data.html" target="_blank" class="inline-flex items-center text-xs font-semibold px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-400/30 rounded-xl transition">
+                <span>Verify on MCA Portal</span>
+                <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+              </a>
+            </div>
+          </div>
+
+          <!-- WHOIS Domain Age Card -->
+          <div class="bg-slate-900/60 border border-white/10 rounded-2xl p-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">Domain WHOIS Check</h4>
+            <div id="whoisInfoContent" class="text-sm text-slate-300 space-y-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Copy Buttons -->
+        <div class="mt-8 flex flex-col sm:flex-row gap-3 pt-6 border-t border-white/10">
+          <button id="copyComplaint" class="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-2xl shadow transition text-sm flex items-center justify-center space-x-2">
+            <span>Copy Cybercrime Complaint Draft</span>
+          </button>
+          <button id="copyAlert" class="flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-2xl border border-white/10 transition text-sm flex items-center justify-center space-x-2">
+            <span>Copy TPO / Class Alert Message</span>
+          </button>
+        </div>
+
       </div>
     </div>
+
   </div>
 
   <script>
     const form = document.getElementById('offerForm');
-    const resultDiv = document.getElementById('result');
-    const resultCard = document.getElementById('resultCard');
-    const resultBody = document.getElementById('resultBody');
-    const riskBadge = document.getElementById('riskBadge');
     const submitBtn = document.getElementById('submitBtn');
+    const loadingState = document.getElementById('loadingState');
+    const resultDiv = document.getElementById('result');
+    const riskScoreVal = document.getElementById('riskScoreVal');
+    const gaugeCircle = document.getElementById('gaugeCircle');
+    const verdictBadge = document.getElementById('verdictBadge');
+    const reasonHinglishText = document.getElementById('reasonHinglishText');
+    const reasonOdiaText = document.getElementById('reasonOdiaText');
+    const redFlagsContainer = document.getElementById('redFlagsContainer');
+    const mcaInfoContent = document.getElementById('mcaInfoContent');
+    const whoisInfoContent = document.getElementById('whoisInfoContent');
+    const mcaLinkBtn = document.getElementById('mcaLinkBtn');
 
-    const sampleSafe = document.getElementById('sampleSafe');
-    const sampleSuspicious = document.getElementById('sampleSuspicious');
-    const sampleScam = document.getElementById('sampleScam');
+    const tabHinglish = document.getElementById('tabHinglish');
+    const tabOdia = document.getElementById('tabOdia');
 
     const copyComplaint = document.getElementById('copyComplaint');
     const copyAlert = document.getElementById('copyAlert');
 
-    const safeText = `Dear Candidate,\n\nWe are pleased to offer you an internship at Acme Corp (Official domain: hr@acme-corp.com).\nStipend: ₹8,000 per month.\nPlease reply to this email to schedule your joining formalities.\n\nRegards,\nHR`;
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
 
-    const suspiciousText = `Hello,\n\nYou have been selected for a role. Contact us on WhatsApp. Stipend: ₹30,000/month. Send your PAN and bank details. Email: hr.acme123@gmail.com\n\nRegards`;
+    // Sample Texts
+    const sampleSafe = document.getElementById('sampleSafe');
+    const sampleSuspicious = document.getElementById('sampleSuspicious');
+    const sampleScam = document.getElementById('sampleScam');
 
-    const scamText = `Urgent! Limited seats. Pay a registration fee of ₹2,999 to confirm your seat via UPI. Contact: +91-9xxxxxxxxx. Email: hiring.team@yahoo.com`;
+    const safeText = `Dear Candidate,\n\nWe are pleased to offer you an internship at Acme Corp India (Official domain: careers@acme-corp.in).\nStipend: ₹12,000 per month.\nPlease reply to this email to schedule your joining formalities.\n\nRegards,\nHR Team`;
+    const suspiciousText = `Hello Candidate,\n\nYou have been selected for work from home internship at TechNova Solutions. Stipend: ₹25,000/month. Please send your PAN card and bank account details to tech.nova.hr@gmail.com for verification.\n\nRegards`;
+    const scamText = `Urgent Internship Offer! Pay a registration fee of ₹2,999 via UPI to confirm your seat immediately. Contact WhatsApp: +91-9876543210. Email: hr.securejob@yahoo.com`;
 
     sampleSafe.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('offerText').value = safeText; });
     sampleSuspicious.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('offerText').value = suspiciousText; });
     sampleScam.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('offerText').value = scamText; });
 
+    // Drag and drop handling
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-400', 'bg-slate-900/80'); });
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-indigo-400', 'bg-slate-900/80'); });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-indigo-400', 'bg-slate-900/80');
+      if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        fileNameDisplay.textContent = `Selected file: ${fileInput.files[0].name}`;
+        fileNameDisplay.classList.remove('hidden');
+      }
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        fileNameDisplay.textContent = `Selected file: ${fileInput.files[0].name}`;
+        fileNameDisplay.classList.remove('hidden');
+      }
+    });
+
+    // Tab switching
+    tabHinglish.addEventListener('click', () => {
+      tabHinglish.className = 'px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white transition shadow';
+      tabOdia.className = 'px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition';
+      reasonHinglishText.classList.remove('hidden');
+      reasonOdiaText.classList.add('hidden');
+    });
+
+    tabOdia.addEventListener('click', () => {
+      tabOdia.className = 'px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white transition shadow';
+      tabHinglish.className = 'px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition';
+      reasonOdiaText.classList.remove('hidden');
+      reasonHinglishText.classList.add('hidden');
+    });
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Checking...';
-
       const offerText = document.getElementById('offerText').value;
-      const fileInput = document.getElementById('fileInput');
+      if (!offerText && fileInput.files.length === 0) {
+        alert('Please paste offer text or upload a document.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      loadingState.classList.remove('hidden');
+      resultDiv.classList.add('hidden');
 
       const formData = new FormData();
       formData.append('offer_text', offerText);
@@ -92,63 +247,109 @@
       }
 
       try {
-        const resp = await fetch('http://127.0.0.1:8000/check-offer', {
+        const resp = await fetch('/check-offer', {
           method: 'POST',
           body: formData
         });
 
         if (!resp.ok) {
           const err = await resp.json();
-          resultBody.innerHTML = `<div class="text-red-600">Error: ${err.detail || resp.statusText}</div>`;
-          resultDiv.classList.remove('hidden');
-          return;
+          throw new Error(err.detail || 'Server error');
         }
 
         const data = await resp.json();
 
-        // Determine color based on verdict
-        let bgClass = 'bg-gray-50 border-gray-200';
-        let badgeText = `${data.verdict} - ${data.risk_score}`;
-        if (data.verdict === 'Safe') { bgClass = 'bg-green-50 border-green-200'; riskBadge.className = 'text-green-800 bg-green-100 text-sm font-bold px-3 py-1 rounded'; }
-        else if (data.verdict === 'Suspicious') { bgClass = 'bg-yellow-50 border-yellow-200'; riskBadge.className = 'text-yellow-800 bg-yellow-100 text-sm font-bold px-3 py-1 rounded'; }
-        else { bgClass = 'bg-red-50 border-red-200'; riskBadge.className = 'text-red-800 bg-red-100 text-sm font-bold px-3 py-1 rounded'; }
+        // Update score & gauge
+        const score = data.risk_score;
+        riskScoreVal.textContent = score;
+        gaugeCircle.style.strokeDasharray = `${score}, 100`;
 
-        resultCard.className = `p-4 rounded border ${bgClass}`;
+        // Verdict styling
+        let badgeClass = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        let gaugeColor = 'text-emerald-400';
+        if (data.verdict === 'Suspicious') {
+          badgeClass = 'bg-amber-500/20 text-amber-300 border border-amber-500/30';
+          gaugeColor = 'text-amber-400';
+        } else if (data.verdict === 'Likeli Scam' || data.verdict === 'Likely Scam') {
+          badgeClass = 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
+          gaugeColor = 'text-rose-500';
+        }
+        verdictBadge.className = `inline-block px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 ${badgeClass}`;
+        verdictBadge.textContent = data.verdict;
+        gaugeCircle.className = `${gaugeColor} transition-all duration-1000`;
 
-        // Render response
-        resultBody.innerHTML = `
-          <div class="mb-2"><strong>Risk Score:</strong> ${data.risk_score}</div>
-          <div class="mb-2"><strong>Verdict:</strong> ${data.verdict}</div>
-          <div class="mb-2"><strong>Red Flags:</strong><ul class="list-disc pl-5">${data.red_flags.map(f => `<li>${f}</li>`).join('')}</ul></div>
-          <div class="mb-2"><strong>Reason (Hinglish):</strong><div class="mt-1 text-sm text-gray-700">${data.reason_hinglish}</div></div>
-          <div class="mb-2"><strong>Reason (Odia):</strong><div class="mt-1 text-sm text-gray-700">${data.reason_odia}</div></div>
-        `;
+        // Reasons
+        reasonHinglishText.textContent = data.reason_hinglish;
+        reasonOdiaText.textContent = data.reason_odia;
 
-        // Prepare copy texts
-        const complaintDraft = `I want to file a cybercrime complaint.\n\nOffer details:\n${offerText}\n\nRed flags:\n${data.red_flags.join('\n')}\n\nPlease investigate.`;
-        const alertMsg = `Alert: Possible scam offer circulating. Red flags: ${data.red_flags.join(', ')}. Please warn students and do not share personal documents.`;
+        // Red flags cards
+        redFlagsContainer.innerHTML = '';
+        if (data.red_flags && data.red_flags.length > 0) {
+          data.red_flags.forEach(flag => {
+            const card = document.createElement('div');
+            card.className = 'flex items-start space-x-3 bg-rose-950/30 border border-rose-500/20 rounded-2xl p-4';
+            card.innerHTML = `
+              <div class="text-rose-400 mt-0.5 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              </div>
+              <div class="text-sm text-slate-200 font-medium">${flag}</div>
+            `;
+            redFlagsContainer.appendChild(card);
+          });
+        } else {
+          redFlagsContainer.innerHTML = '<div class="text-xs text-slate-400 italic">No specific red flags detected.</div>';
+        }
+
+        // MCA info
+        if (data.mca_info) {
+          mcaInfoContent.innerHTML = `
+            <div><strong>Company Mentioned:</strong> ${data.mca_info.company_name || 'N/A'}</div>
+            <div><strong>CIN Found:</strong> ${data.mca_info.cin || 'None (Suspicious if unregistered)'}</div>
+          `;
+          if (data.mca_info.mca_verify_link) {
+            mcaLinkBtn.href = data.mca_info.mca_verify_link;
+          }
+        }
+
+        // WHOIS info
+        if (data.domain_reports && data.domain_reports.length > 0) {
+          let reportHtml = '';
+          data.domain_reports.forEach(r => {
+            const ageStr = r.age_days !== null ? `${r.age_days} days` : 'Unknown';
+            const statusColor = r.is_under_6_months ? 'text-rose-400 font-bold' : 'text-emerald-400';
+            reportHtml += `<div>Domain: <code class="text-indigo-300">${r.domain}</code></div>
+                           <div>Age: <span class="${statusColor}">${ageStr}</span> ${r.is_under_6_months ? '(Under 6 months!)' : ''}</div>`;
+          });
+          whoisInfoContent.innerHTML = reportHtml;
+        } else {
+          whoisInfoContent.innerHTML = '<div class="text-xs text-slate-400 italic">No corporate domain detected for WHOIS check.</div>';
+        }
+
+        // Copy buttons logic
+        const complaintDraft = `I want to file a cybercrime fraud complaint regarding a fraudulent internship/job offer.\n\nOffer Text / Details:\n${offerText}\n\nDetected Red Flags:\n${(data.red_flags || []).join('\n')}\n\nRisk Score: ${score}/100 (${data.verdict})\n\nPlease investigate this matter.`;
+        const alertMsg = `⚠️ ALERT: Scam Internship Offer Detected!\n\nRisk Score: ${score}/100 (${data.verdict})\nKey Red Flags:\n${(data.red_flags || []).join('\n')}\n\nStudents are advised NOT to pay any money or share personal documents. Stay safe with Scam Shield!`;
 
         copyComplaint.onclick = async () => {
           await navigator.clipboard.writeText(complaintDraft);
-          copyComplaint.textContent = 'Copied!';
+          copyComplaint.textContent = 'Copied Complaint Draft!';
           setTimeout(() => copyComplaint.textContent = 'Copy Cybercrime Complaint Draft', 2000);
         };
 
         copyAlert.onclick = async () => {
           await navigator.clipboard.writeText(alertMsg);
-          copyAlert.textContent = 'Copied!';
+          copyAlert.textContent = 'Copied Alert Message!';
           setTimeout(() => copyAlert.textContent = 'Copy TPO / Class Alert Message', 2000);
         };
 
-        riskBadge.textContent = badgeText;
         resultDiv.classList.remove('hidden');
+        resultDiv.scrollIntoView({ behavior: 'smooth' });
+
       } catch (err) {
         console.error(err);
-        resultBody.innerHTML = `<div class="text-red-600">Error: ${err.message}</div>`;
-        resultDiv.classList.remove('hidden');
+        alert('Error: ' + err.message);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Check Offer';
+        loadingState.classList.add('hidden');
       }
     });
   </script>

@@ -1,5 +1,9 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
-python-dotenv==1.0.0
-google-generativeai==0.3.1
+fastapi==0.141.1
+uvicorn==0.52.4
+python-multipart==0.0.32
+python-dotenv==1.2.4
+google-genai==2.34.0
+pypdf==6.20.0
+python-whois==0.9.6
+pytest==9.2.0
+httpx==0.28.1

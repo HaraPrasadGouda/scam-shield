@@ -50,6 +50,12 @@ def _validate_response_json(data: dict):
     assert isinstance(data["reason_odia"], str), "reason_odia must be a string"
 
 
+def test_root_serves_html():
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers.get("content-type", "")
+
+
 def test_safe_offer():
     resp = client.post("/check-offer", data={"offer_text": SAFE_OFFER})
     assert resp.status_code == 200
