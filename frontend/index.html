@@ -103,9 +103,9 @@
 
       <div class="drop" id="drop">
         <b>Upload offer letter</b> or drag it here<br>
-        <span style="font-size:12px">PDF, PNG or JPG</span>
+        <span style="font-size:12px">PDF, TXT, PNG or JPG</span>
       </div>
-      <input type="file" id="fileInput" accept=".pdf,image/png,image/jpeg" hidden>
+      <input type="file" id="fileInput" accept=".pdf,.txt,image/png,image/jpeg" hidden>
       <div class="file-chip" id="fileChip"><span id="fileName"></span><button type="button" id="clearFile">Remove</button></div>
 
       <button class="btn" id="analyzeBtn" type="button">Check this offer</button>
@@ -228,7 +228,11 @@
 
     fetch("/check-offer", { method: "POST", body: fd })
       .then(function (r) {
-        if (!r.ok) return r.text().then(function (x) { throw new Error("Server error " + r.status + ": " + x.slice(0, 200)); });
+        if (!r.ok) return r.text().then(function (x) {
+          var msg = x;
+          try { var j = JSON.parse(x); if (j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail); } catch (e) {}
+          throw new Error(msg.slice(0, 300));
+        });
         return r.json();
       })
       .then(render)

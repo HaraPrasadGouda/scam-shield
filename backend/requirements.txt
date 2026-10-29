@@ -7,3 +7,4 @@ pypdf==6.20.0
 python-whois==0.9.6
 pytest==9.2.0
 httpx==0.28.1
+rapidocr-onnxruntime

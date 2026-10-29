@@ -32,7 +32,7 @@ app.add_middleware(
 
 # Configure Gemini API using google-genai SDK
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 # Initialize Gemini client
 client = None
@@ -56,6 +56,11 @@ class OfferCheckResponse(BaseModel):
     domain_reports: Optional[List[Dict[str, Any]]] = None
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "gemini": bool(client), "model": GEMINI_MODEL}
+
+
 @app.get("/")
 async def serve_index():
     """Serve frontend/index.html at root '/'."""
@@ -65,10 +70,58 @@ async def serve_index():
     return HTMLResponse("<h1>Scam Shield API is running. frontend/index.html not found.</h1>", status_code=200)
 
 
+_GEMINI_PAUSED_UNTIL = 0.0
+
+
+def gemini_available() -> bool:
+    """False while Gemini is not configured or its quota is exhausted (skip the slow failing call)."""
+    import time
+    return bool(client) and time.time() >= _GEMINI_PAUSED_UNTIL
+
+
+def note_gemini_error(e: Exception, where: str) -> None:
+    """Log one short line; on quota errors pause Gemini calls until the retry time."""
+    global _GEMINI_PAUSED_UNTIL
+    import time
+    msg = str(e)
+    if "RESOURCE_EXHAUSTED" in msg or "429" in msg:
+        m = re.search(r"retry in ([\d.]+)s", msg)
+        wait = float(m.group(1)) if m else 3600.0
+        _GEMINI_PAUSED_UNTIL = time.time() + wait
+        print(f"Gemini quota exhausted ({where}); using offline rules/OCR for the next {int(wait // 60)} min")
+    else:
+        print(f"Gemini error ({where}): {msg[:200]}")
+
+
+_OCR = None
+
+
+def offline_ocr(content: bytes) -> str:
+    """Read text from an image without any API key (RapidOCR, runs on CPU)."""
+    global _OCR
+    try:
+        if _OCR is None:
+            from rapidocr_onnxruntime import RapidOCR
+            _OCR = RapidOCR()
+        result, _ = _OCR(content)
+        if not result:
+            return ""
+        # sort boxes top-to-bottom, left-to-right, and join lines
+        result.sort(key=lambda r: (round(r[0][0][1] / 15), r[0][0][0]))
+        return "\n".join(r[1] for r in result)
+    except Exception as e:
+        print(f"Offline OCR error: {e}")
+        return ""
+
+
 async def extract_text_from_file(file: UploadFile) -> str:
     """Extract text from an uploaded file using pypdf for PDFs and Gemini OCR for images."""
     content = await file.read()
     content_type = file.content_type or ""
+
+    # Plain text files (.txt / .eml)
+    if content_type.startswith("text/") or file.filename.lower().endswith(('.txt', '.eml')):
+        return content.decode("utf-8", errors="ignore").strip()
 
     # PDF extraction
     if content_type == "application/pdf" or file.filename.lower().endswith('.pdf'):
@@ -84,10 +137,10 @@ async def extract_text_from_file(file: UploadFile) -> str:
             print(f"PDF extraction error: {e}")
             return ""
 
-    # Image extraction via Gemini OCR
-    if content_type.startswith("image/"):
-        if not client:
-            return ""
+    # Image extraction: Gemini OCR if available, else offline OCR (RapidOCR)
+    if content_type.startswith("image/") or file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+        if not gemini_available():
+            return offline_ocr(content)
         try:
             prompt = (
                 "Extract any text present in the image. Return only the extracted text; do not add any commentary. "
@@ -100,49 +153,101 @@ async def extract_text_from_file(file: UploadFile) -> str:
                     types.Part.from_bytes(data=content, mime_type=content_type)
                 ]
             )
-            return (response.text or "").strip()
+            text = (response.text or "").strip()
+            return text or offline_ocr(content)
         except Exception as e:
-            print(f"Gemini OCR error: {e}")
-            return ""
+            note_gemini_error(e, "OCR")
+            return offline_ocr(content)
 
     return ""
 
 
+def _any(patterns, low):
+    """Return the first matched snippet for any regex in patterns, else None."""
+    for p in patterns:
+        m = re.search(p, low)
+        if m:
+            return m.group(0)
+    return None
+
+
+AMT = r"(?:₹|rs\.?|inr)\s*\d[\d,]*"
+
+# Each rule: (key, weight, human-readable red flag, regex patterns). Weights add up into the risk score.
+RULES = [
+    ("money_ask", 65, "Asks you to pay money to get the job (fee / deposit / paid plan). Real employers never charge candidates.", [
+        r"(registration|enrol?ment|training|security|joining|processing|onboarding|verification|refundable|kit|uniform|laptop)\s*(security\s*)?(fee|fees|charges?|deposit|amount|money)",
+        r"(fee|fees|deposit|charges?)\s*(of|is|:|-)?\s*" + AMT,
+        AMT + r"\s*(registration|deposit|fee|enrol)",
+        r"(complete|pay)\s*(the|your)?\s*" + AMT,
+        r"(deposit|pay)\s*" + AMT,
+        r"internship (plans?|program) below|choos\w* one of the .{0,40}plans",
+        r"(after|on) (the )?payment",
+    ]),
+    ("task_scam", 35, "Classic 'task' scam: paid per like/review/click, commission, or 'data tasks' with returns.", [
+        r"like \d* ?(youtube|instagram)|youtube video|google (maps )?reviews?|5-star review",
+        r"commission", r"brush the volume", r"data tasks?", r"\d+\s*-\s*\d+%\s*return|\d+% return",
+        r"receptionist", r"prepaid task", r"withdraw anytime",
+    ]),
+    ("upi_request", 65, "Asks you to approve a UPI 'request' or share PIN/OTP. Approving a request SENDS money from your account.", [
+        r"request to approve", r"approve (it|the request)", r"collect request", r"upi pin", r"\botp\b",
+        r"(phonepe|gpay|google pay|paytm) number",
+    ]),
+    ("govt_letter", 65, "Government appointment letter without any recruitment notification / advertisement number. Government jobs come only through official exams and notifications.", []),
+    ("chat_only", 10, "Recruitment moves to WhatsApp/Telegram links instead of an official company channel.", [
+        r"wa\.me/", r"t\.me/", r"telegram", r"on whats(app)?\b", r"whatsapp (group|number)",
+    ]),
+    ("personal_email", 20, "HR uses a free Gmail/Yahoo/Outlook address instead of a company email.", [
+        r"[\w.+-]+@(gmail|yahoo|outlook|hotmail|rediffmail)\.com\b",
+    ]),
+    ("unreal_pay", 15, "Too-good-to-be-true pay for very little work (per-day salary, guaranteed stipend, no experience).", [
+        r"daily salary", r"(per day|/day|a day)\b.{0,20}" + AMT, AMT + r"\s*(per day|/day|a day|daily)",
+        r"guaranteed stipend", r"no experience (needed|required)", r"\d+\s*-\s*\d+\s*minutes", r"only \d+ hours",
+    ]),
+    ("urgency", 15, "Pressure tactics to stop you from checking (limited seats, closing today, immediate).", [
+        r"within \d+ (hours?|hrs)", r"limited (seats|places|slots)", r"closing today", r"\bhurry\b", r"last chance",
+        r"immediately", r"immediate joining", r"interview:? tomorrow", r"otherwise the offer will be cancell?ed",
+        r"confirm your seat",
+    ]),
+    ("referral", 15, "Referral cashback / bring-your-friends rewards: a pyramid-style money model, not a job.", [
+        r"referral (cashback|bonus|reward)", r"for every (student|friend|person) you bring",
+    ]),
+    ("documents", 10, "Asks for Aadhaar / PAN / bank details before any verified offer.", [
+        r"aadhaa?r", r"\bpan (card|number|details)\b", r"bank (details|account number)",
+    ]),
+]
+
+
+def detect_signals(text: str) -> list:
+    """Run every rule on the text. Returns a list of (key, weight, flag, evidence)."""
+    low = re.sub(r"\s+", " ", text.lower())  # PDFs break lines mid-sentence
+    hits = []
+    for key, weight, flag, patterns in RULES:
+        if key == "govt_letter":
+            if re.search(r"government of india|ministry of|govt\. of india", low) and \
+               re.search(r"appointment letter|hereby appointed|appointed to the post", low) and \
+               not re.search(r"(advertisement|advt|notification|employment notice)\s*(no|number)", low):
+                hits.append((key, weight, flag, "appointment letter"))
+            continue
+        ev = _any(patterns, low)
+        if ev:
+            hits.append((key, weight, flag, ev))
+    return hits
+
+
 def run_local_checks(text: str) -> dict:
-    """Run simple verification checks:
-    - flag personal email domains (@gmail.com, @yahoo.com)
-    - detect fee keywords (registration fee, training fee, security deposit, UPI)
-    - check missing CIN or address indicators
-    - collect exact suspicious quotes/lines
-    """
-    checks = {
-        "personal_email": False,
-        "fee_keywords": False,
-        "missing_cin": False,
-        "suspicious_lines": []
+    """Rule-based checks, also passed to Gemini as evidence."""
+    hits = detect_signals(text)
+    keys = {h[0] for h in hits}
+    return {
+        "personal_email": "personal_email" in keys,
+        "fee_keywords": "money_ask" in keys,
+        "missing_cin": not re.search(r"[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}", text),
+        "suspicious_lines": [f"{h[2]} (found: \"{h[3]}\")" for h in hits],
+        "signals": hits,
     }
 
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
-    for ln in lines:
-        low = ln.lower()
-        if re.search(r"[\w.+-]+@(gmail|yahoo)\.com\b", low):
-            checks["personal_email"] = True
-            checks["suspicious_lines"].append(ln)
-        if any(k in low for k in ["registration fee", "training fee", "security deposit", "upi", "pay now", "payment", "security money"]):
-            checks["fee_keywords"] = True
-            checks["suspicious_lines"].append(ln)
-
-    if any("cin" not in l.lower() for l in lines) and any("company" in l.lower() for l in lines):
-        if not any('cin' in l.lower() for l in lines):
-            checks["missing_cin"] = True
-
-    return checks
-
-
-URGENCY_WORDS = ["within 24 hours", "within 2 hours", "within 48 hours", "limited seats", "immediately",
-                 "urgent", "last chance", "otherwise the offer will be cancelled", "confirm your seat"]
-EASY_MONEY_WORDS = ["only 2 hours", "work from home", "no experience", "earn rs", "earn ₹", "per day"]
 
 
 LANGUAGES = ["en", "hinglish", "hi", "or", "bn", "ta", "te", "mr"]
@@ -184,29 +289,17 @@ REASON_TEMPLATES = {
 
 def heuristic_result(text: str, checks: dict, whois_result: dict) -> dict:
     """Rule-based score used when Gemini is unavailable or fails."""
-    low = text.lower()
-    score = 10
-    flags = []
-    if checks.get("fee_keywords"):
-        score += 40
-        flags.append("Asks you to pay money (fee / deposit / UPI). Real companies never charge for a job.")
-    if checks.get("personal_email"):
-        score += 20
-        flags.append("HR uses a free Gmail/Yahoo address instead of a company email.")
-    urgent = [w for w in URGENCY_WORDS if w in low]
-    if urgent:
-        score += 15
-        flags.append("Pressure tactics: " + ", ".join(f'"{w}"' for w in urgent[:3]))
-    easy = [w for w in EASY_MONEY_WORDS if w in low]
-    if easy:
-        score += 10
-        flags.append("Too-good-to-be-true pay or effort: " + ", ".join(f'"{w}"' for w in easy[:3]))
-    if "whatsapp" in low and "hr" in low:
-        score += 5
-        flags.append("Recruitment only over WhatsApp.")
-    new_domains = [r for r in whois_result.get("domains_checked", []) if r.get("is_under_6_months")]
-    if new_domains:
+    hits = checks.get("signals") or detect_signals(text)
+    score = 5 + sum(h[1] for h in hits)
+    flags = [f"{h[2]} (found: \"{h[3]}\")" for h in hits]
+    if any(r.get("is_under_6_months") for r in whois_result.get("domains_checked", [])):
         score += 25
+        flags.append("Website/email domain was registered less than 6 months ago.")
+    company = (whois_result.get("mca_info") or {}).get("company_name", "")
+    has_contact = re.search(r"https?://|www\.|@[\w-]+\.", text.lower())
+    if (not company or company.startswith("Not ")) and not has_contact and len(text) < 600:
+        score += 35
+        flags.append("No company name, website or official email anywhere in the message. Verify who is actually hiring.")
     if re.search(r"[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}", text):
         score -= 10
     score = max(0, min(100, score))
@@ -254,7 +347,7 @@ def compose_gemini_prompt(text: str, checks: dict, whois_result: dict) -> str:
 
 def analyze_with_gemini(prompt: str):
     """Send prompt to Gemini and parse JSON. Returns None if Gemini is unavailable or fails."""
-    if not client:
+    if not gemini_available():
         return None
     try:
         response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
@@ -267,7 +360,7 @@ def analyze_with_gemini(prompt: str):
                 data["verdict"] = "Suspicious"
             return data
     except Exception as e:
-        print(f"Gemini call error: {e}")
+        note_gemini_error(e, "analysis")
     return None
 
 
@@ -282,6 +375,8 @@ async def check_offer(offer_text: Optional[str] = Form(None), file: Optional[Upl
         extracted = await extract_text_from_file(file)
         if extracted:
             combined_text += "\n" + extracted
+        elif not offer_text:
+            raise HTTPException(status_code=422, detail="Could not read any text from this file. Try a clearer image/PDF, or paste the text instead.")
 
     # Run local verification checks
     checks = run_local_checks(combined_text)

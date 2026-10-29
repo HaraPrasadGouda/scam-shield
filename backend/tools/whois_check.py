@@ -63,15 +63,21 @@ def extract_company_info(text: str) -> Dict[str, Any]:
     cin_match = re.search(cin_pattern, text)
     cin = cin_match.group(0) if cin_match else None
 
-    # Try to find company name patterns
+    # Try to find a company name: "<Name> Pvt Ltd / Private Limited / Limited / LLP / Inc ..."
     company_name = None
-    lines = text.splitlines()
-    for line in lines:
-        lower = line.lower()
-        if "at " in lower or "company" in lower or "pvt" in lower or "limited" in lower or "llp" in lower:
-            # Simple heuristic extraction
-            company_name = line.strip()
-            break
+    suffix = r"(?:Private Limited|Pvt\.? Ltd\.?|Limited|Ltd\.?|LLP|Inc\.?|Technologies|Solutions|Services|Corp(?:oration)?)"
+    m = re.search(r"((?:[A-Z][A-Za-z0-9&.\-]*[ \t]){1,4}?" + suffix + r")\b", text)
+    if m:
+        company_name = m.group(1).strip(" .,")
+    else:
+        for p in [r"\bAbout (?:us:?\s*)?([A-Z][A-Za-z0-9&]+)",
+                  r"\bTeam ([A-Z][A-Za-z0-9&]+)",
+                  r"\b(?:calling|writing) from ([A-Z][A-Za-z0-9&]+)",
+                  r"\b(?:Internship|Program|position|role|Intern) at ([A-Z][A-Za-z0-9&]+(?:\s[A-Z][A-Za-z0-9&]+){0,2})"]:
+            m = re.search(p, text)
+            if m and m.group(1).lower() not in {"the", "our", "us", "you", "your", "team", "teams"}:
+                company_name = m.group(1).strip(" .,")
+                break
 
     return {
         "company_name": company_name or "Not explicitly specified",
