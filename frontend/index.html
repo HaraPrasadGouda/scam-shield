@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scam Shield</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-6">
+  <div class="max-w-3xl w-full bg-white shadow-md rounded-lg p-6">
+    <h1 class="text-2xl font-bold mb-4">Scam Shield</h1>
+    <p class="text-sm text-gray-600 mb-4">Paste the internship/job offer below or upload a PDF/image. We'll check for common scam indicators.</p>
+
+    <div class="flex gap-2 mb-4">
+      <button id="sampleSafe" class="px-3 py-1 bg-green-100 text-green-800 rounded text-sm">Sample: Safe Offer</button>
+      <button id="sampleSuspicious" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">Sample: Suspicious Offer</button>
+      <button id="sampleScam" class="px-3 py-1 bg-red-100 text-red-800 rounded text-sm">Sample: Scam Offer</button>
+    </div>
+
+    <form id="offerForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Offer Text</label>
+        <textarea id="offerText" name="offerText" rows="8" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Upload File (PDF or image)</label>
+        <input id="fileInput" name="file" type="file" accept="application/pdf,image/*" class="mt-1" />
+      </div>
+
+      <div>
+        <button id="submitBtn" type="submit" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Check Offer</button>
+      </div>
+    </form>
+
+    <div id="result" class="mt-6 hidden">
+      <div id="resultCard" class="p-4 rounded border">
+        <div class="flex items-center justify-between">
+          <h2 id="resultTitle" class="text-lg font-semibold">Result</h2>
+          <div id="riskBadge" class="text-sm font-bold px-3 py-1 rounded"></div>
+        </div>
+
+        <div id="resultBody" class="mt-3 text-sm text-gray-800">
+          <!-- Filled by JS -->
+        </div>
+
+        <div class="mt-4 flex gap-2">
+          <button id="copyComplaint" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Copy Cybercrime Complaint Draft</button>
+          <button id="copyAlert" class="px-3 py-2 bg-gray-800 text-white rounded hover:bg-gray-900">Copy TPO / Class Alert Message</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('offerForm');
+    const resultDiv = document.getElementById('result');
+    const resultCard = document.getElementById('resultCard');
+    const resultBody = document.getElementById('resultBody');
+    const riskBadge = document.getElementById('riskBadge');
+    const submitBtn = document.getElementById('submitBtn');
+
+    const sampleSafe = document.getElementById('sampleSafe');
+    const sampleSuspicious = document.getElementById('sampleSuspicious');
+    const sampleScam = document.getElementById('sampleScam');
+
+    const copyComplaint = document.getElementById('copyComplaint');
+    const copyAlert = document.getElementById('copyAlert');
+
+    const safeText = `Dear Candidate,\n\nWe are pleased to offer you an internship at Acme Corp (Official domain: hr@acme-corp.com).\nStipend: ₹8,000 per month.\nPlease reply to this email to schedule your joining formalities.\n\nRegards,\nHR`;
+
+    const suspiciousText = `Hello,\n\nYou have been selected for a role. Contact us on WhatsApp. Stipend: ₹30,000/month. Send your PAN and bank details. Email: hr.acme123@gmail.com\n\nRegards`;
+
+    const scamText = `Urgent! Limited seats. Pay a registration fee of ₹2,999 to confirm your seat via UPI. Contact: +91-9xxxxxxxxx. Email: hiring.team@yahoo.com`;
+
+    sampleSafe.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('offerText').value = safeText; });
+    sampleSuspicious.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('offerText').value = suspiciousText; });
+    sampleScam.addEventListener('click', (e) => { e.preventDefault(); document.getElementById('offerText').value = scamText; });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Checking...';
+
+      const offerText = document.getElementById('offerText').value;
+      const fileInput = document.getElementById('fileInput');
+
+      const formData = new FormData();
+      formData.append('offer_text', offerText);
+      if (fileInput.files.length > 0) {
+        formData.append('file', fileInput.files[0]);
+      }
+
+      try {
+        const resp = await fetch('http://127.0.0.1:8000/check-offer', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          resultBody.innerHTML = `<div class="text-red-600">Error: ${err.detail || resp.statusText}</div>`;
+          resultDiv.classList.remove('hidden');
+          return;
+        }
+
+        const data = await resp.json();
+
+        // Determine color based on verdict
+        let bgClass = 'bg-gray-50 border-gray-200';
+        let badgeText = `${data.verdict} - ${data.risk_score}`;
+        if (data.verdict === 'Safe') { bgClass = 'bg-green-50 border-green-200'; riskBadge.className = 'text-green-800 bg-green-100 text-sm font-bold px-3 py-1 rounded'; }
+        else if (data.verdict === 'Suspicious') { bgClass = 'bg-yellow-50 border-yellow-200'; riskBadge.className = 'text-yellow-800 bg-yellow-100 text-sm font-bold px-3 py-1 rounded'; }
+        else { bgClass = 'bg-red-50 border-red-200'; riskBadge.className = 'text-red-800 bg-red-100 text-sm font-bold px-3 py-1 rounded'; }
+
+        resultCard.className = `p-4 rounded border ${bgClass}`;
+
+        // Render response
+        resultBody.innerHTML = `
+          <div class="mb-2"><strong>Risk Score:</strong> ${data.risk_score}</div>
+          <div class="mb-2"><strong>Verdict:</strong> ${data.verdict}</div>
+          <div class="mb-2"><strong>Red Flags:</strong><ul class="list-disc pl-5">${data.red_flags.map(f => `<li>${f}</li>`).join('')}</ul></div>
+          <div class="mb-2"><strong>Reason (Hinglish):</strong><div class="mt-1 text-sm text-gray-700">${data.reason_hinglish}</div></div>
+          <div class="mb-2"><strong>Reason (Odia):</strong><div class="mt-1 text-sm text-gray-700">${data.reason_odia}</div></div>
+        `;
+
+        // Prepare copy texts
+        const complaintDraft = `I want to file a cybercrime complaint.\n\nOffer details:\n${offerText}\n\nRed flags:\n${data.red_flags.join('\n')}\n\nPlease investigate.`;
+        const alertMsg = `Alert: Possible scam offer circulating. Red flags: ${data.red_flags.join(', ')}. Please warn students and do not share personal documents.`;
+
+        copyComplaint.onclick = async () => {
+          await navigator.clipboard.writeText(complaintDraft);
+          copyComplaint.textContent = 'Copied!';
+          setTimeout(() => copyComplaint.textContent = 'Copy Cybercrime Complaint Draft', 2000);
+        };
+
+        copyAlert.onclick = async () => {
+          await navigator.clipboard.writeText(alertMsg);
+          copyAlert.textContent = 'Copied!';
+          setTimeout(() => copyAlert.textContent = 'Copy TPO / Class Alert Message', 2000);
+        };
+
+        riskBadge.textContent = badgeText;
+        resultDiv.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        resultBody.innerHTML = `<div class="text-red-600">Error: ${err.message}</div>`;
+        resultDiv.classList.remove('hidden');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Check Offer';
+      }
+    });
+  </script>
+</body>
+</html>
