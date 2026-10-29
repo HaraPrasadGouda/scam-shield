@@ -91,9 +91,7 @@ def run_whois_and_mca_checks(text: str) -> Dict[str, Any]:
         if report.get("is_under_6_months"):
             age = report.get("age_days", "unknown")
             red_flags.append(f"Domain '{d}' was registered recently (under 6 months old / ~{age} days old - high scam risk)")
-        elif report.get("error"):
-            # If domain lookup fails or domain doesn't exist
-            red_flags.append(f"Domain '{d}' WHOIS lookup failed or domain appears invalid/unregistered.")
+        # A failed WHOIS lookup (network/timeout) is not evidence of a scam, so it is not flagged.
 
     mca_info = extract_company_info(text)
 
