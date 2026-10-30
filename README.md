@@ -8,7 +8,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688) ![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-orange) ![Gemini](https://img.shields.io/badge/AI-Gemini-8E75B2) ![License](https://img.shields.io/badge/license-MIT-green) ![Built in AgentFoundry](https://img.shields.io/badge/built%20in-AgentFoundry-black)
 
-**[🔗 Live demo](LIVE_LINK_HERE)** · **[🎬 Demo video](VIDEO_LINK_HERE)**
+*[🔗 Live demo](https://scam-shield-cxtg.onrender.com)*
 
 <img src="docs/scam_result.png" alt="Scam Shield flagging a fake paid-internship offer" width="85%">
 
