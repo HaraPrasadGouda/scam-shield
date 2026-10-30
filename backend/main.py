@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
@@ -73,10 +73,46 @@ async def serve_index():
 _GEMINI_PAUSED_UNTIL = 0.0
 
 
+import contextvars
+import datetime as _dt
+
+# Per-visitor daily cap on Gemini checks (protects the shared free quota on a public deployment).
+# GEMINI_PER_IP_DAILY=0 turns the cap off. Requests from localhost are never capped.
+GEMINI_PER_IP_DAILY = int(os.getenv("GEMINI_PER_IP_DAILY", "3"))
+_IP_USAGE: Dict[str, Any] = {}
+_ALLOW_GEMINI = contextvars.ContextVar("allow_gemini", default=True)
+
+
+def client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def take_gemini_slot(ip: str) -> bool:
+    """True if this visitor may use Gemini for this check (and counts it)."""
+    if GEMINI_PER_IP_DAILY <= 0 or ip in ("127.0.0.1", "::1", "localhost", "testclient"):
+        return True
+    today = _dt.date.today().isoformat()
+    day, used = _IP_USAGE.get(ip, (today, 0))
+    if day != today:
+        used = 0
+    if used >= GEMINI_PER_IP_DAILY:
+        return False
+    _IP_USAGE[ip] = (today, used + 1)
+    return True
+
+
 def gemini_available() -> bool:
-    """False while Gemini is not configured or its quota is exhausted (skip the slow failing call)."""
+    """False while Gemini is not configured, its quota is exhausted, or this visitor hit the daily cap."""
     import time
-    return bool(client) and time.time() >= _GEMINI_PAUSED_UNTIL
+    return bool(client) and time.time() >= _GEMINI_PAUSED_UNTIL and _ALLOW_GEMINI.get()
+
+
+def time_ok() -> bool:
+    import time
+    return time.time() >= _GEMINI_PAUSED_UNTIL
 
 
 def note_gemini_error(e: Exception, where: str) -> None:
@@ -85,8 +121,8 @@ def note_gemini_error(e: Exception, where: str) -> None:
     import time
     msg = str(e)
     if "RESOURCE_EXHAUSTED" in msg or "429" in msg:
-        m = re.search(r"retry in ([\d.]+)s", msg)
-        wait = float(m.group(1)) if m else 3600.0
+        m = re.search(r"retry in ([\d.]+)s", msg) or re.search(r"retryDelay['\"]?\s*:\s*['\"]([\d.]+)s", msg)
+        wait = min(float(m.group(1)), 12 * 3600.0) if m else 3600.0
         _GEMINI_PAUSED_UNTIL = time.time() + wait
         print(f"Gemini quota exhausted ({where}); using offline rules/OCR for the next {int(wait // 60)} min")
     else:
@@ -235,6 +271,39 @@ def detect_signals(text: str) -> list:
     return hits
 
 
+# ---- ML layer: TF-IDF + Logistic Regression trained on 17,880 real job postings (EMSCAD, 866 fake) ----
+_ML_MODEL = None
+_ML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model", "scam_model.joblib")
+
+
+def ml_scam_probability(text: str):
+    """Probability (0-1) that the text looks like a known fake job post. None if the model is missing."""
+    global _ML_MODEL
+    try:
+        if _ML_MODEL is None:
+            if not os.path.exists(_ML_PATH):
+                return None
+            import joblib
+            _ML_MODEL = joblib.load(_ML_PATH)
+        return float(_ML_MODEL.predict_proba([text])[0][1])
+    except Exception as e:
+        print(f"ML model error: {str(e)[:120]}")
+        return None
+
+
+def ml_signal(prob):
+    """(weight, flag) for the ML probability."""
+    if prob is None or prob < 0.5:
+        return 0, None
+    pct = int(round(prob * 100))
+    flag = f"Text matches patterns of known fake job posts (ML model trained on 17,880 real postings: {pct}% fake-like)."
+    if prob >= 0.85:
+        return 65, flag
+    if prob >= 0.7:
+        return 40, flag
+    return 20, flag
+
+
 def run_local_checks(text: str) -> dict:
     """Rule-based checks, also passed to Gemini as evidence."""
     hits = detect_signals(text)
@@ -245,6 +314,7 @@ def run_local_checks(text: str) -> dict:
         "missing_cin": not re.search(r"[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}", text),
         "suspicious_lines": [f"{h[2]} (found: \"{h[3]}\")" for h in hits],
         "signals": hits,
+        "ml_probability": ml_scam_probability(text),
     }
 
 
@@ -292,13 +362,19 @@ def heuristic_result(text: str, checks: dict, whois_result: dict) -> dict:
     hits = checks.get("signals") or detect_signals(text)
     score = 5 + sum(h[1] for h in hits)
     flags = [f"{h[2]} (found: \"{h[3]}\")" for h in hits]
+    ml_w, ml_flag = ml_signal(checks.get("ml_probability"))
+    if ml_flag:
+        score += ml_w
+        flags.append(ml_flag)
     if any(r.get("is_under_6_months") for r in whois_result.get("domains_checked", [])):
         score += 25
         flags.append("Website/email domain was registered less than 6 months ago.")
     company = (whois_result.get("mca_info") or {}).get("company_name", "")
     has_contact = re.search(r"https?://|www\.|@[\w-]+\.", text.lower())
     if (not company or company.startswith("Not ")) and not has_contact and len(text) < 600:
-        score += 35
+        # A missing employer is a strong red flag only together with another warning sign;
+        # on its own (e.g. a short genuine SMS) it just adds a little caution.
+        score += 35 if hits else 15
         flags.append("No company name, website or official email anywhere in the message. Verify who is actually hiring.")
     if re.search(r"[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}", text):
         score -= 10
@@ -317,6 +393,8 @@ def compose_gemini_prompt(text: str, checks: dict, whois_result: dict) -> str:
     prompt += f"- personal_email_flag: {checks.get('personal_email')}\n"
     prompt += f"- fee_keywords_flag: {checks.get('fee_keywords')}\n"
     prompt += f"- missing_cin_flag: {checks.get('missing_cin')}\n"
+    if checks.get('ml_probability') is not None:
+        prompt += f"- ml_fake_job_probability (TF-IDF model trained on 17,880 real job posts; strong signal above 0.7): {checks['ml_probability']:.2f}\n"
     
     suspicious = checks.get('suspicious_lines', [])
     whois_flags = whois_result.get('red_flags', [])
@@ -365,9 +443,11 @@ def analyze_with_gemini(prompt: str):
 
 
 @app.post("/check-offer", response_model=OfferCheckResponse)
-async def check_offer(offer_text: Optional[str] = Form(None), file: Optional[UploadFile] = File(None)):
+async def check_offer(request: Request, offer_text: Optional[str] = Form(None), file: Optional[UploadFile] = File(None)):
     if not offer_text and not file:
         raise HTTPException(status_code=400, detail="Provide offer text or upload a file")
+    if client and time_ok():
+        _ALLOW_GEMINI.set(take_gemini_slot(client_ip(request)))
 
     combined_text = offer_text or ""
 

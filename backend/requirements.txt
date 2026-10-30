@@ -8,3 +8,5 @@ python-whois==0.9.6
 pytest==9.2.0
 httpx==0.28.1
 rapidocr-onnxruntime
+scikit-learn==1.9.1
+joblib==1.6.0
