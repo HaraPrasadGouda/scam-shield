@@ -240,16 +240,22 @@
       .finally(function () { btn.disabled = false; btn.textContent = "Check this offer"; });
   });
 
+  // One score -> label rule, mirrored from the backend: 70+ Likely Scam, 40-69 Suspicious, below 40 Safe.
+  function verdictFor(score) {
+    return score >= 70 ? "Likely Scam" : score >= 40 ? "Suspicious" : "Safe";
+  }
+
   function render(d) {
     var score = Math.max(0, Math.min(100, parseInt(d.risk_score, 10) || 0));
-    var color = score >= 70 ? "var(--red)" : score >= 40 ? "var(--amber)" : "var(--green)";
+    var label = verdictFor(score);  // same thresholds as verdict_for_score() in backend/main.py
+    var color = label === "Likely Scam" ? "var(--red)" : label === "Suspicious" ? "var(--amber)" : "var(--green)";
     empty.style.display = "none";
     result.style.display = "block";
 
     $("score").textContent = score;
     $("score").style.color = color;
     var v = $("verdict");
-    v.textContent = d.verdict || (score >= 70 ? "Likely Scam" : score >= 40 ? "Suspicious" : "Looks Safe");
+    v.textContent = label;
     v.style.color = color;
     $("meterBar").style.background = color;
     $("meterBar").style.width = "0";
